@@ -1,6 +1,7 @@
-import std/[files, macros, math, paths, sequtils, setutils, streams, strutils]
+import std/[files, macros, math, paths, sequtils, setutils, streams, strutils, tables]
 
 import blocks
+import gltf
 
 const CCS_MAGIC: array[4, char] = ['C', 'C', 'S', 'F']
 const HEADER_MAGIC = [0xCC.char, 0xCC.char]
@@ -13,8 +14,8 @@ type
   MaybeObjType = distinct uint8
 
   CcsStructType {.packed.} = object
-    category:   MaybeCatType
-    objectType: MaybeObjType
+    category:   MaybeCatType#uint8#CcsSupType
+    objectType: MaybeObjType#uint8#CcsSubType
     magic: array[2, char]
 
   FileHeader {.packed.} = object
@@ -56,49 +57,73 @@ proc readFile(filePath: string) =
   var fileInfo: FileHeader
   discard stream.readData(fileInfo.addr, sizeof(fileInfo))
   assert fileInfo.magic == CCS_MAGIC, "Wrong magic at the start of file."
+  echo fileInfo
 
   var table: FileTable
   discard stream.readData(table.addr, sizeof(table))
+  echo table
+  echo "------------"
 
+  echo "Files:"
   for fileIndex in 0..<table.numFiles:
     var name: string = stream.readStr(32)
+    echo "\t", $name
+  echo "------------"
 
+  echo "Objects:"
   for objIndex in 0..<table.numObjects:
     var objEntry: EntryInfo
     discard stream.readData(objEntry.addr, sizeof(objEntry))
+    echo "\t", objEntry
 
   var dataInfo: DataHeader
   discard stream.readData(dataInfo.addr, sizeof(dataInfo))
+  echo dataInfo
+  echo "---------------"
 
-  var prevObjectType: CcsObjType = cotNone
-  var prevHeader: EntryHeader
+  var models:    Table[uint32, Model]
+  var materials: Table[uint32, Material]
+  var textures:  Table[uint32, Texture]
+
   while not stream.atEnd():
     var header: EntryHeader
     discard stream.readData(header.addr, sizeof(header))
-
-    if header.`type`.magic != [0xCC.char, 0xCC.char]:
-      raise newException(ValueError, "Wrong header magic." & $prevObjectType)
-    prevObjectType = header.`type`.objectType.CcsObjType
-    prevHeader = header
+    if header.`type`.magic != [0xCC.char, 0xCC.char]: raise newException(ValueError, "Wrong header magic.")# & $prevObjectType)
 
     var size: int = header.size.int*sizeof(uint32)
     case header.`type`.objectType.CcsObjType: # Textures and models have incorrect object size in their header
       of cotTexture:
-        discard stream.readTexture()
+        var texture: Texture = stream.readTexture()
+        textures[texture.id] = texture
       of cotModel:
-        discard stream.readModel()
-      else: discard stream.readStr(size)
+        var model: Model = stream.readModel()
+        models[model.header.id] = model
+      of cotMaterial:
+        var material: Material
+        discard stream.readData(material.addr, size)
+        materials[material.id] = material
+      else:
+        discard stream.readStr(size)
+
+  var context: Context = createScene()
+  for id, model in models.mpairs:
+    if model.kind == mkRigid:
+      context.createNode(model)
+      # break
+  context.writeToFile("data/output.glb".Path)
 
 var errors: int = 0
 var broken = [1031, 1032, 1039, 1143, 1145]
-for i in 0..<1447:
+var towns  = 1213..1224
+var single: seq[int] = @[1215]
+# for i in 0..<1447:
+for i in single:
   let filePath  = "data/infection/unpacked/" & $i
   if not fileExists(filePath.Path): continue
-
   try:
     readFile(filePath)
   except ValueError as e:
     echo "ValueError in ", i, ": ", e.msg
     errors += 1
-echo errors, " errors."
+echo errors
 

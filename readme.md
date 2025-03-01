@@ -13,10 +13,9 @@ All the known structs for the CCS format are in the ccs.nim and blocks.nim files
 
 Workflow:
 1. Run unpacker to unpack data.bin into individual gzip files
-2. Run gzip "\*.gz" to unzip the gzip files
+2. Run `gzip "\*.gz"` to unzip the gzip files
 3. Run reader to parse the ccs files and export them as glb
 
 Not yet done:
 	Commandline arguments.
 	Anime object parsing.
-	GLB exporter.
