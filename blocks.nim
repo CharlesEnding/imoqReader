@@ -21,15 +21,12 @@ type
     id, nodeCount: uint32
     nodeIds: seq[uint32]
 
-  Clut {.packed.} = object
-    id, blitGroup, unk1, unk2, colorCount: uint32
-    colors: seq[ColorBGRA]
+  Color* {.packed.} = object
+    r*, b*, g*, a*: uint8
 
-  ColorBGRA* {.packed.} = object
-    b, g, r, a: uint8
-
-  ColorRGBA* {.packed.} = object
-    r, b, g, a: uint8
+  Clut* {.packed.} = object
+    id*, blitGroup, unk1, unk2, colorCount: uint32
+    palette*: seq[Color]
 
   Dummy {.packed.} = object
     id: uint32
@@ -41,7 +38,7 @@ type
 
   HitGroup {.packed.} = object
     vertexCount: uint64
-    color: ColorRGBA
+    color: Color
     vertices: seq[Vec3]
 
   HitMesh {.packed.} = object
@@ -71,10 +68,10 @@ type
     texCoords*: seq[UV]
 
   RigidPrimitive* = object
-    parentId, matTexId, numVertices: uint32
+    parentId, matTexId*, numVertices: uint32
     vertices*: seq[Vec3H]
     normals*:  seq[Normal]
-    colors:   seq[ColorRGBA]
+    colors:    seq[Color]
     texCoords*: seq[UV]
 
   ShadowPrimitive = object
@@ -89,7 +86,7 @@ type
 
   ModelHeader* {.packed.} = object
     id*: uint32
-    vertexScale: float32
+    vertexScale*: float32
     `type`: ModelKind
     numPrimitives*, drawFlags*, unk1: uint16
     gifData*: array[4, uint8]
@@ -115,14 +112,14 @@ type
     ttI8   = 0x13
     ttI4   = 0x14
 
-  TextureType = distinct uint8
+  TextureType* = distinct uint8
 
   Texture* {.packed.} = object
-    id*, clutId, blitGroupId: uint32
+    id*, clutId*, blitGroupId: uint32
     flags: uint8
-    `type`: TextureType
-    mipCount, unk1, width, height: uint8
-    unk2: uint16
+    `type`*: TextureType
+    mipCount, unk1*, widthLog2*, heightLog2*: uint8
+    unk2*: uint16
     unk3, textureDataSize*: uint32
     data*: seq[byte]
 
@@ -161,37 +158,37 @@ proc readClump(s: Stream): Clump =
   discard s.readData(result.addr, sizeof(Clump)-sizeof(result.nodeIds))
   result.nodeIds = s.readSeq(result.nodeCount.int, uint32)
 
-proc readClut(s: Stream): Clut =
-  discard s.readData(result.addr, sizeof(Clut)-sizeof(result.colors))
-  result.colors = s.readSeq(result.colorCount.int, ColorBGRA)
+proc readClut*(s: Stream): Clut =
+  discard s.readData(result.addr, sizeof(Clut)-sizeof(result.palette))
+  result.palette = s.readSeq(result.colorCount.int, Color)
 
-proc readMorphTargetPrimitive(s: Stream, scale: float32): MorphTargetPrimitive =
+proc readMorphTargetPrimitive(s: Stream): MorphTargetPrimitive =
   discard s.readData(result.addr, sizeof(result.parentId) + sizeof(result.matTexId) + sizeof(result.numVertices))
-  result.vertices = s.readSeq(result.numVertices.int, Vec3H, discardPadding=true).mapIt(it * scale)
+  result.vertices = s.readSeq(result.numVertices.int, Vec3H, discardPadding=true)
   result.normals = s.readSeq(result.numVertices.int, Normal)
 
-proc readRigidPrimitive(s: Stream, scale: float32): RigidPrimitive =
+proc readRigidPrimitive(s: Stream): RigidPrimitive =
   discard s.readData(result.addr, sizeof(result.parentId) + sizeof(result.matTexId) + sizeof(result.numVertices))
-  result.vertices  = s.readSeq(result.numVertices.int, Vec3H, discardPadding=true).mapIt(it * scale)
+  result.vertices  = s.readSeq(result.numVertices.int, Vec3H, discardPadding=true)
   result.normals   = s.readSeq(result.numVertices.int, Normal)
-  result.colors    = s.readSeq(result.numVertices.int, ColorRGBA)
+  result.colors    = s.readSeq(result.numVertices.int, Color)
   result.texCoords = s.readSeq(result.numVertices.int, UV)
 
-proc readDeformRigidPrimitive(s: Stream, scale: float32): DeformRigidPrimitive =
+proc readDeformRigidPrimitive(s: Stream): DeformRigidPrimitive =
   discard s.readData(result.addr, sizeof(result.matTexId) + sizeof(result.numVertices) + sizeof(result.unk1) + sizeof(result.parentId))
-  result.vertices  = s.readSeq(result.numVertices.int, Vec3H, discardPadding=true).mapIt(it * scale)
+  result.vertices  = s.readSeq(result.numVertices.int, Vec3H, discardPadding=true)
   result.normals   = s.readSeq(result.numVertices.int, Normal)
   result.texCoords = s.readSeq(result.numVertices.int, UV)
 
-proc readDeformablePrimitive(s: Stream, scale: float32): DeformablePrimitive =
+proc readDeformablePrimitive(s: Stream): DeformablePrimitive =
   discard s.readData(result.addr, sizeof(result.matTexId) + sizeof(result.numVertices) + sizeof(result.numVerticesActual))
-  result.vertices  = s.readSeq(result.numVerticesActual.int, DeformableVertex, discardPadding=true) # TODO: Add scale
+  result.vertices  = s.readSeq(result.numVerticesActual.int, DeformableVertex, discardPadding=true)
   result.normals   = s.readSeq(result.numVerticesActual.int, Normal)
   result.texCoords = s.readSeq(result.numVertices.int, UV)
 
-proc readShadowPrimitive(s: Stream, scale: float32): ShadowPrimitive =
+proc readShadowPrimitive(s: Stream): ShadowPrimitive =
   discard s.readData(result.addr, sizeof(result.numVertices) + sizeof(result.numIndices))
-  result.vertices = s.readSeq(result.numVertices.int, Vec3H, discardPadding=true).mapIt(it * scale)
+  result.vertices = s.readSeq(result.numVertices.int, Vec3H, discardPadding=true)
   result.indices  = s.readSeq(result.numIndices.int, uint32)
 
 proc readModel*(s: Stream): Model =
@@ -203,12 +200,11 @@ proc readModel*(s: Stream): Model =
 
   result = Model(header: result.header, kind: kind) # Can't assign kind w/ object variants so we have to recreate the model
   var indices: seq[int] = toSeq(0..<result.header.numPrimitives.int)
-  var scale: float32 = result.header.vertexScale / 256.0 * 0.0625 # Magic value taken from StudioCCS
   case result.kind:
-    of mkShadow:      result.shadowPrimitives      = indices.mapIt(s.readShadowPrimitive(scale))
-    of mkRigid:       result.rigidPrimitives       = indices.mapIt(s.readRigidPrimitive(scale))
-    of mkMorphTarget: result.morphTargetPrimitives = indices.mapIt(s.readMorphTargetPrimitive(scale))
+    of mkShadow:      result.shadowPrimitives      = indices.mapIt(s.readShadowPrimitive)
+    of mkRigid:       result.rigidPrimitives       = indices.mapIt(s.readRigidPrimitive)
+    of mkMorphTarget: result.morphTargetPrimitives = indices.mapIt(s.readMorphTargetPrimitive)
     of mkDeformable:
-      result.deformableRigidPrimitives = indices[0..^2].mapIt(s.readDeformRigidPrimitive(scale))
-      result.deformablePrimitive = s.readDeformablePrimitive(result.header.vertexScale)
+      result.deformableRigidPrimitives = indices[0..^2].mapIt(s.readDeformRigidPrimitive)
+      result.deformablePrimitive = s.readDeformablePrimitive()
 

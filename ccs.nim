@@ -81,9 +81,11 @@ proc readFile(filePath: string) =
   echo dataInfo
   echo "---------------"
 
+  # TODO: change to single table with tuple key
   var models:    Table[uint32, Model]
   var materials: Table[uint32, Material]
   var textures:  Table[uint32, Texture]
+  var cluts:     Table[uint32, Clut]
 
   while not stream.atEnd():
     var header: EntryHeader
@@ -102,14 +104,25 @@ proc readFile(filePath: string) =
         var material: Material
         discard stream.readData(material.addr, size)
         materials[material.id] = material
-      else:
-        discard stream.readStr(size)
+      of cotClut:
+        var clut: Clut = stream.readClut()
+        cluts[clut.id] = clut
+      else:       discard stream.readStr(size)
 
   var context: Context = createScene()
+
+  for id, material in materials.mpairs:
+    if material.textureId in textures:
+      var texture: Texture = textures[material.textureId]
+      if texture.clutId in cluts:
+        context.createMaterial(material, texture, cluts[texture.clutId].palette)
+
+  # TODO: Objects -> Models, Dummies for position, rotation, then add scale from model
   for id, model in models.mpairs:
     if model.kind == mkRigid:
       context.createNode(model)
       # break
+
   context.writeToFile("data/output.glb".Path)
 
 var errors: int = 0

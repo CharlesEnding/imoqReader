@@ -1,5 +1,7 @@
 import std/[json, options, paths, sequtils, streams, tables]
 
+import stb_image/write as stbiw
+
 import blas
 import blocks
 
@@ -11,7 +13,7 @@ type
     mode: int
     attributes: Table[string, AccessorId]
     indices: Option[AccessorId]
-    # material: Option[ResourceId]
+    material: ResourceId
 
   Mesh = object
     primitives: seq[Primitive]
@@ -24,15 +26,16 @@ type
 
   BaseColorTexture = object
     index, texCoord: ResourceId
-    metallicFactor, roughnessFactor: float
 
-  PbrMettalicRoughness = object
-    baseColorFactor:  array[4, int]
+  PbrMetallicRoughness = object
+    baseColorFactor:  array[4, int] = [1, 1, 1, 1]
     baseColorTexture: BaseColorTexture
+    metallicFactor, roughnessFactor: float
 
   Material = object
     name: string
-    pbrMettalicRoughness: PbrMettalicRoughness
+    pbrMetallicRoughness: PbrMetallicRoughness
+    doubleSided: bool = true
 
   Buffer = object
     byteLength: int
@@ -40,7 +43,7 @@ type
   BufferView = object
     buffer: ResourceId
     byteOffset, byteLength: int
-    target: int
+    target: Option[int]
 
   Accessor = object
     bufferView: ResourceId
@@ -49,7 +52,8 @@ type
     `max`, `min`: seq[float32]
 
   Texture = object
-    source, sampler: ResourceId
+    source: ResourceId
+    # sampler: ResourceId
 
   Image = object
     bufferView: ResourceId
@@ -84,32 +88,35 @@ type
   Context* = object
     file: GltfFile
     buffer: Stream
+    ccsIdToGltfId: Table[tuple[`type`: string, id: int], ResourceId]
 
 const VEC_3H_TYPE = 5122
 const VEC_3B_TYPE = 5120
-const VEC_3_TYPE  = 5126
+const GL_FLOAT  = 5126
+const GL_INT = 5125
 const UV_TYPE     = 5122
 const COLOR_TYPE  = 5125
-const INDICES_TYPE = 5125
 
 proc serialize[T](context: var Context, data: seq[T]): int =
   var size: int = data.len * sizeof(T)
   context.buffer.writeData(data[0].addr, size)
   return size
 
-proc createAccessor[T](context: var Context, data: seq[T], `type`: string, componentType: int, target: int): AccessorId =
-  result = context.file.accessors.len() # One buffer view per accessor, they share the same id.
+proc createBufferView[T](context: var Context, data: seq[T], target: Option[int] = none(int)): ResourceId =
   while context.buffer.getPosition() mod 4 != 0: context.buffer.write(0.byte) # Offsets must be 4 bytes aligned
   var offset = context.buffer.getPosition()
   var length = context.serialize(data)
   context.file.bufferViews.add BufferView(buffer: 0, byteOffset: offset, byteLength: length, target: target) # buffer id always zero, we use a single big one
+  return context.file.bufferViews.len() - 1
 
+proc createAccessor[T](context: var Context, data: seq[T], `type`: string, componentType: int, target: Option[int]): AccessorId =
+  var bufViewId = context.createBufferView(data, target)
   var accessor =
-    when T is uint32: Accessor(bufferView: result, `type`: `type`, componentType: componentType, count: data.len, max: @[max(data).float32], min: @[min(data).float32])
-    else:             Accessor(bufferView: result, `type`: `type`, componentType: componentType, count: data.len, max: max(data).toSeq(),    min: min(data).toSeq())
+    when T is uint32: Accessor(bufferView: bufViewId, `type`: `type`, componentType: componentType, count: data.len, max: @[max(data).float32], min: @[min(data).float32])
+    else:             Accessor(bufferView: bufViewId, `type`: `type`, componentType: componentType, count: data.len, max:   max(data).toSeq(),  min:   min(data).toSeq())
   context.file.accessors.add(accessor)
+  return context.file.accessors.len() - 1
 
-proc toVec3Seq[T](s: seq[T]): seq[Vec3] = s.mapIt([it[0].float32, it[1].float32, it[2].float32])
 
 # proc serialize(context: var Context, primitive: MorphTargetPrimitive): Primitive =
 #   result.mode = 4
@@ -128,17 +135,19 @@ proc toVec3Seq[T](s: seq[T]): seq[Vec3] = s.mapIt([it[0].float32, it[1].float32,
 #   result.attributes["NORMAL"]     = context.createAccessor(primitive.normals.mapIt(it.value).toVec3Seq, "VEC3", VEC_3_TYPE)
 #   # result.attributes["TEXCOORD_0"] = context.createAccessor(primitive.texCoords, "VEC2", UV_TYPE)
 
-proc serialize(context: var Context, primitive: RigidPrimitive): Primitive =
+proc serialize(context: var Context, primitive: RigidPrimitive, scale: float32): Primitive =
   result.mode = 4
-  result.attributes["POSITION"]   = context.createAccessor(primitive.vertices.toVec3Seq, "VEC3", VEC_3_TYPE, 34962)
-  result.attributes["NORMAL"]     = context.createAccessor(primitive.normals.mapIt(it.value).toVec3Seq, "VEC3", VEC_3_TYPE, 34962)
-  var indices: seq[uint32]
+  result.material = context.ccsIdToGltfId[("mat", primitive.matTexId.int)]
+  result.attributes["POSITION"]   = context.createAccessor(primitive.vertices.toFloatVecs.scale(scale * 0.001), "VEC3", GL_FLOAT, 34962.some)
+  # result.attributes["NORMAL"]     = context.createAccessor(primitive.normals.mapIt(it.value).toFloatVecs, "VEC3", GL_FLOAT, 34962.some)
+  var indices: seq[uint32] # Todo move to blocks?
   for i in 0..<primitive.vertices.len:
     if primitive.normals[i].flags == 0: indices &= @[i.uint32, (i-1).uint32, (i-2).uint32]
-  result.indices = context.createAccessor(indices, "SCALAR", INDICES_TYPE, 34963).some()
-  # result.attributes["TEXCOORD_0"] = context.createAccessor(primitive.texCoords, "VEC2", UV_TYPE, 34962)
+  result.indices = context.createAccessor(indices, "SCALAR", GL_INT, 34963.some).some()
+  echo primitive.texCoords
+  result.attributes["TEXCOORD_0"] = context.createAccessor(primitive.texCoords.toFloatVecs.scale(1.0 / 256.0), "VEC2", GL_FLOAT, 34962.some)
 
-proc createNode*(context: var Context, model: Model) =
+proc createNode*(context: var Context, model: blocks.Model) =
   var meshId = context.file.meshes.len()
   context.file.meshes.add Mesh()
   var nodeId = context.file.nodes.len()
@@ -149,13 +158,36 @@ proc createNode*(context: var Context, model: Model) =
   of mkRigid:
     for primitive in model.rigidPrimitives:
       if primitive.vertices.len != 0:
-        context.file.meshes[^1].primitives.add context.serialize(primitive)
+        context.file.meshes[^1].primitives.add context.serialize(primitive, model.header.vertexScale)
   else:
     raise newException(ValueError, "Can't serialize model type.")
 
-proc align(stream: Stream) =
-  while stream.getPosition() mod 4 != 0:
-    stream.write("0")
+proc bmpDeindex*(data: seq[byte], palette: seq[Color], width, height, `type`: int): seq[byte] =
+  if `type` == 0x13:
+    for pi in data:
+      result.add palette[pi].r
+      result.add palette[pi].b
+      result.add palette[pi].g
+      result.add min(0xFF, palette[pi].a.int * 2).byte
+  else:
+    raise newException(ValueError, "Texture indexing not supported.")
+
+proc createMaterial*(context: var Context, material: blocks.Material, texture: blocks.Texture, palette: seq[blocks.Color]) =
+  if ("tex", texture.id.int) notin context.ccsIdToGltfId:
+    var width:  int = 1 shl texture.widthLog2.int
+    var height: int = 1 shl texture.heightLog2.int
+    var imgId = context.file.images.len
+    var data: seq[byte] = bmpDeindex(texture.data, palette, width, height, texture.`type`.int)
+    var textureAsPng: seq[byte] = stbiw.writePNG(width, height, 4, data)
+    context.file.images.add Image(bufferView: context.createBufferView(textureAsPng), mimeType: "image/png") # IMOQ only ever uses BMPs
+    var texId = context.file.textures.len
+    context.ccsIdToGltfId[("tex", texture.id.int)] = texId
+    context.file.textures .add Texture(source: imgId)
+  var texId = context.ccsIdToGltfId[("tex", texture.id.int)]
+
+  context.file.materials.add Material(doubleSided: true)
+  context.file.materials[^1].pbrMetallicRoughness = PbrMetallicRoughness(baseColorTexture: BaseColorTexture(index: texId, texCoord: 0), metallicFactor: 1, roughnessFactor: 1)
+  context.ccsIdToGltfId[("mat", material.id.int)] = context.file.materials.len - 1
 
 proc writeToFile*(context: var Context, path: Path) =
   context.file.asset = Asset(version: "2.0")

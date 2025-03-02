@@ -1,5 +1,5 @@
 # Basic Linear Algebra Subprograms
-import math
+import std/[math, sequtils]
 
 type
   Vec*[N: static[int]; T] = array[N, T]
@@ -26,12 +26,21 @@ proc max*[N, T](v0, v1: Vec[N, T]): Vec[N, T] {.inline.} =
 
 proc min*[N, T](data: seq[Vec[N, T]]): Vec[N, T] {.inline.} =
   for i in 0..<N:
-    result[i] = INF.T
+    result[i] = high(T)
   for v in data:
     result = min(result, v)
 
 proc max*[N, T](data: seq[Vec[N, T]]): Vec[N, T] {.inline.} =
   for i in 0..<N:
-    result[i] = -INF.T
+    result[i] = low(T)
   for v in data:
     result = max(result, v)
+
+proc toFloatVecs*[N, T](s: seq[Vec[N, T]]): seq[Vec[N, float32]] =
+  for v in s:
+    var newVertex: Vec[N, float32]
+    for i in 0..<N:
+      newVertex[i] = v[i].float32
+    result.add(newVertex)
+
+proc scale*[N](data: seq[Vec[N, float32]], scale: float32): seq[Vec[N, float32]] = data.mapIt(it * scale)
