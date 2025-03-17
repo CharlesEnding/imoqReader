@@ -1,0 +1,24 @@
+Files Info:
+
+0-395: Undocumented
+396-494: Desktops - A single quad mesh with a large texture on it.
+495-532: Undocumented
+533-578: Staves
+579-624: Swords
+625-672: Axes
+673-713: Longswords
+714-799: Undocumented
+800-880: Twinblades
+881-975: Undocumented
+976: Warp Portal
+977-1004: Dungeon Props (eggs, skeletons, boxes, chests, ...)
+1005-1011: Ghent Statues
+1012-1213: Undocumented
+1214-1224: Maps (Mac Anu, Dun Loireag, Netslum, ...)
+1225-1235: Undocumented
+1236-1374: Field skies and field props (dungeon entrances, rocks, etc...)
+1375-1398: Undocumented
+1399-1417: Maps used for story beats and some cutscenes
+1418-1446: Undocumented
+
+Left to document: 395+37+85+94+201+10+23+28 = 863

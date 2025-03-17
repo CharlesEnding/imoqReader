@@ -13,21 +13,27 @@ All the known structs for the CCS format are in the ccs.nim and blocks.nim files
 
 Workflow:
 1. Run unpacker to unpack data.bin into individual gzip files
-2. Run `gzip "\*.gz"` to unzip the gzip files
+2. Run `gzip -d \*.gz` to unzip the gzip files
 3. Run reader to parse the ccs files and export them as glb
 
 Not yet done:
 	Commandline arguments.
 	Anime object parsing.
 
-# Things to Know
+# Building from source
+
+1. Install the single dependency: `nimble install stb_image`
+2. Compile: `nim c ccs.nim`
+
+# Format Idiosyncracies
 
 These are things to know for developers who want to look into the CCS format, not of any use to people who just want to use this program.
 
 ## Models
 
 Each model has its own vertex scale. One should be careful to apply it only after the vertices have been converted to floats or there will be overflows.
-The UVs are between 0 and 256 and should be normalized to render.
+The UVs are between 0 and 256 and should be normalized to 0-1 render.
+The model transforms are stored in the dummies (position, rotation) and the model itself (scale).
 
 ## Textures
 
