@@ -1,4 +1,4 @@
-import std/[macros, sequtils, streams, strutils]
+import std/[macros, math, sequtils, streams, strutils]
 
 import blas
 
@@ -11,38 +11,34 @@ type
     value*: Vec3H
     joint: uint16
 
-  AnimePrimitive {.packed.} = object
-    `type`, size: uint32
-
-  Anime {.packed.} = object
-    id, frameCount, size: uint32
-
-  Clump {.packed.} = object
-    id, nodeCount: uint32
-    nodeIds: seq[uint32]
+  Clump* {.packed.} = object
+    id*, numNodeIds*: uint32
+    nodeIds*: seq[uint32]
 
   Color* {.packed.} = object
     r*, b*, g*, a*: uint8
 
   Clut* {.packed.} = object
-    id*, blitGroup, unk1, unk2, colorCount: uint32
+    id*, blitGroup*, unk1*, unk2*, numColors*: uint32
     palette*: seq[Color]
 
-  Dummy {.packed.} = object
-    id: uint32
-    position: Vec3
+  Dummy* {.packed.} = object
+    id*: uint32
+    position*, rotation*: Vec3
 
-  DummyPosRot {.packed.} = object
-    id: uint32
-    position, rotation: Vec3
+  External* {.packed.} = object
+    animId, unkFlags, targetObjectId: uint32
+
+  Unk5* {.packed.} = object
+    animId, unk1, targetMorpherId, unk2, unk3: uint32
 
   HitGroup {.packed.} = object
-    vertexCount: uint64
+    numVertices: uint64
     color: Color
     vertices: seq[Vec3]
 
   HitMesh {.packed.} = object
-    id, unk1, hitGroupCount, vertexCount: uint32
+    id, unk1, hitGroupCount, numHitgroups: uint32
     hitGroups: seq[HitGroup]
 
   Material* {.packed.} = object
@@ -68,7 +64,7 @@ type
     texCoords*: seq[UV]
 
   RigidPrimitive* = object
-    parentId, matTexId*, numVertices: uint32
+    parentId*, matTexId*, numVertices: uint32
     vertices*: seq[Vec3H]
     normals*:  seq[Normal]
     colors:    seq[Color]
@@ -88,7 +84,7 @@ type
     id*: uint32
     vertexScale*: float32
     `type`: ModelKind
-    numPrimitives*, drawFlags*, unk1: uint16
+    numPrimitives*, drawFlags*, unk1*: uint16
     gifData*: array[4, uint8]
 
   Model* = object
@@ -104,24 +100,103 @@ type
     of mkShadow:
       shadowPrimitives*: seq[ShadowPrimitive]
 
-  Object {.packed.} = object
-    id, parentId, modelId, shadowId: uint32
+  Object* {.packed.} = object
+    id*, parentId*, modelId*, shadowId: uint32
 
-  KnownTextureType = enum
-    ttRGBA = 0x0
-    ttI8   = 0x13
-    ttI4   = 0x14
-
+  KnownTextureType = enum ttRGBA = 0x0, ttI8   = 0x13, ttI4   = 0x14
   TextureType* = distinct uint8
+
+  MipTexture* {.packed.} = object
+    unk0, numData: uint32
+    data: seq[uint32]
 
   Texture* {.packed.} = object
     id*, clutId*, blitGroupId: uint32
-    flags: uint8
-    `type`*: TextureType
+    flags, `type`*: uint8
     mipCount, unk1*, widthLog2*, heightLog2*: uint8
     unk2*: uint16
     unk3, textureDataSize*: uint32
-    data*: seq[byte]
+    data*: seq[uint8]
+    mips: seq[MipTexture]
+
+  AnimePrimitiveCategory = enum apcNone = 0, apcKeyframe = 0x01, apcController1 = 0x02, apcController2 = 0x03, apcController3 = 0x09
+  AnimePrimitiveObject   = enum apoNone = 0, apoObject = 0x01, apoMaterial = 0x02, apoLight = 0x06, apoMorph = 0x19, apoEnd = 0xFF
+  AnimeControllerKind    = enum ackNone = 0, ackFixed = 1, ackAnimated = 2
+
+  AnimePrimitiveHeader {.packed.} = object
+    catType, objType: uint8
+    magic: uint16
+    size: uint32
+
+  # ApFrame {.packed.} = object
+  #   header: AnimePrimitiveHeader
+  #   frameNumber: uint32
+  AnimeControllerTrackKind = enum actkFixed = 1, actkAnimated = 2
+  AnimeControllerParameter = object # parameters are uint32 with 3 bits per track denoting its type, up to 10 tracks
+    numTracks: int                  # we store them as objects instead
+    trackKinds: seq[uint32]
+    # trackKinds: seq[AnimeControllerTrackKind]
+
+  AnimeControllerHeader {.packed.} = object
+    objectId*: uint32
+    parameters: AnimeControllerParameter
+
+  # ApFrameVec3 {.packed.} = object
+  #   id: uint32
+  #   value: Vec3
+  # ApFrameFloat {.packed.} = object
+  #   id: uint32
+  #   value: float32
+
+  # ApTrackVec3 {.packed.} = object
+  #   numKeyframes: uint32
+  #   keyframes: seq[ApFrameVec3]
+  # ApTrackFloat {.packed.} = object
+  #   numKeyframes: uint32
+  #   keyframes: seq[ApFrameFloat]
+
+  ApFrame[T] = object
+    id: uint32
+    value*: T
+
+  ApTrack[T] = object
+    numKeyframes: uint32
+    keyframes*: seq[ApFrame[T]]
+
+  ApObjectController {.packed.} = object
+    header*: AnimeControllerHeader
+    positionTrack*, rotationTrack*, scaleTrack*: ApTrack[Vec3]
+    alphaTrack: ApTrack[float32]
+
+  # ApMaterialController {.packed.} = object
+  #   header: AnimeControllerHeader
+  #   uOffsetTrack, vOffsetTrack, unkFTrack,unk2FTrack: ApTrack[Vec3]
+
+  # ApLightDireController {.packed.} = object
+  #   header: AnimeControllerHeader
+  #   directionTrack, colorTrack, unkTrack: ApTrack[Vec3]
+
+  # ApLightOmniController {.packed.} = object
+  #   header: AnimeControllerHeader
+  #   positionTrack, colorTrack, unkF32Track1, unkF34Track2, unkF32Track3: ApTrack[Vec3]
+
+  # Better architecture (maybe):
+  # Controller has header and tracks
+  # Track is a variant object (not generic or they can't all belong to one list)
+  # When reading controller associate trackKinds to trackType so that each
+  # is read with the right type for the type of controller
+  # Not sure.
+
+  ApLightAmbientKeyframe {.packed.} = object
+    header: AnimePrimitiveHeader
+
+  ApLightMorphKeyframe {.packed.} = object
+    header: AnimePrimitiveHeader
+
+  Anime* {.packed.} = object
+    id*, frameCount*, size*: uint32
+    data: seq[uint8]
+    objectControllers*: seq[ApObjectController]
 
 macro enumElementsAsSet(enm: typed): untyped = result = newNimNode(nnkCurly).add(enm.getType[1][1..^1])
 const KNOWN_TEXTURE_TYPES = enumElementsAsSet(KnownTextureType)
@@ -134,62 +209,102 @@ proc readSeq[T](s: Stream, numItems: int, t: typedesc[T], discardPadding: bool =
   discard s.readData(result[0].addr, numItems * sizeof(t))
   if discardPadding and s.getPosition() mod 4 == 2: discard s.readInt16()
 
-proc readAnime(s: Stream): Anime =
-  discard s.readData(result.addr, sizeof(result))
-  discard s.readSeq(result.size.int, byte)
+proc readDummy*(s: Stream, withRotation: bool = false): Dummy =
+  if withRotation: discard s.readData(result.addr, sizeof(result))
+  else:            discard s.readData(result.addr, sizeof(result)-sizeof(result.rotation))
 
-proc readTexture*(s: Stream): Texture =
-  discard s.readData(result.addr, sizeof(Texture)-sizeof(result.data))
-  result.data = s.readSeq(result.textureDataSize.int * 4, uint8)
-  for mi in 0..<(result.mipCount.int):
-    discard s.readUint32()
-    var mipSize: int32 = s.readInt32() * 4
-    s.setPosition(s.getPosition() + mipSize)
 
-proc readHitMesh(s: Stream): HitMesh =
-  discard s.readData(result.addr, sizeof(HitMesh)-sizeof(result.hitGroups))
-  for hgi in 0..<result.hitGroupCount:
-    var hitGroup: HitGroup
-    discard s.readData(hitGroup.addr, sizeof(HitGroup)-sizeof(hitGroup.vertices))
-    hitGroup.vertices = s.readSeq(hitGroup.vertexCount.int, Vec3)
-    result.hitGroups.add(hitGroup)
+createReaders(MipTexture, Color, Vec3, Vec4, Vec3B, Vec3H, UV, DeformableVertex, Normal, HitGroup, HitMesh, Clump, ShadowPrimitive, External, Unk5)
+createReader(Texture, result.textureDataSize*4, result.mipCount.int)
+createReader(Clut, result.numColors)
+createReader(MorphTargetPrimitive, result.numVertices, result.numVertices)
+createReader(RigidPrimitive,       result.numVertices, result.numVertices, result.numVertices, result.numVertices)
+createReader(DeformRigidPrimitive, result.numVertices, result.numVertices, result.numVertices)
+createReader(DeformablePrimitive,  result.numVerticesActual, result.numVerticesActual, result.numVertices)
 
-proc readClump(s: Stream): Clump =
-  discard s.readData(result.addr, sizeof(Clump)-sizeof(result.nodeIds))
-  result.nodeIds = s.readSeq(result.nodeCount.int, uint32)
+# createReader(Anime, result.size*4)
 
-proc readClut*(s: Stream): Clut =
-  discard s.readData(result.addr, sizeof(Clut)-sizeof(result.palette))
-  result.palette = s.readSeq(result.colorCount.int, Color)
+proc readAnimeControllerParameter*(s: Stream): AnimeControllerParameter =
+  var data = s.readuint32()
+  # echo data.int.toBin(32)
+  # echo data.toHex(), " ", log2(data.float), " ", log2(data.float) / 3, " "
+  var numTracks: int = if data > 0: floor(log2(data.float) / 3.0 + 1).int else: 0# 3 bits per track
+  # echo numTracks
+  var trackKinds: seq[uint32] = newSeq[uint32](0)
+  for ti in 0..<numTracks:
+    trackKinds.add ((data shr (ti * 3)) and 0b111)#.AnimeControllerTrackKind
+  return AnimeControllerParameter(numTracks: numTracks, trackKinds: trackKinds)
 
-proc readMorphTargetPrimitive(s: Stream): MorphTargetPrimitive =
-  discard s.readData(result.addr, sizeof(result.parentId) + sizeof(result.matTexId) + sizeof(result.numVertices))
-  result.vertices = s.readSeq(result.numVertices.int, Vec3H, discardPadding=true)
-  result.normals = s.readSeq(result.numVertices.int, Normal)
+createReaders(AnimeControllerHeader)
 
-proc readRigidPrimitive(s: Stream): RigidPrimitive =
-  discard s.readData(result.addr, sizeof(result.parentId) + sizeof(result.matTexId) + sizeof(result.numVertices))
-  result.vertices  = s.readSeq(result.numVertices.int, Vec3H, discardPadding=true)
-  result.normals   = s.readSeq(result.numVertices.int, Normal)
-  result.colors    = s.readSeq(result.numVertices.int, Color)
-  result.texCoords = s.readSeq(result.numVertices.int, UV)
+proc readApFrame[T](s: Stream): ApFrame[T] =
+  result.id = s.readuint32()
+  when T is Vec3:    result.value = s.readVec3()
+  elif T is Vec4:    result.value = s.readVec4()
+  elif T is float32: result.value = s.readfloat32()
 
-proc readDeformRigidPrimitive(s: Stream): DeformRigidPrimitive =
-  discard s.readData(result.addr, sizeof(result.matTexId) + sizeof(result.numVertices) + sizeof(result.unk1) + sizeof(result.parentId))
-  result.vertices  = s.readSeq(result.numVertices.int, Vec3H, discardPadding=true)
-  result.normals   = s.readSeq(result.numVertices.int, Normal)
-  result.texCoords = s.readSeq(result.numVertices.int, UV)
+proc readApTrack[T](s: Stream, kind: uint32): ApTrack[T] =
+  if kind == 2:
+    result.numKeyframes = s.readuint32()
+    for i in 0..<result.numKeyframes:
+      result.keyframes.add readApFrame[T](s)
+  elif kind == 1:
+    result.numKeyframes = 1
+    when T is Vec3:    result.keyframes = @[ApFrame[Vec3](id: 0, value: s.readVec3)]
+    elif T is Vec4:    result.keyframes = @[ApFrame[Vec4](id: 0, value: s.readVec4)]
+    elif T is float32: result.keyframes = @[ApFrame[float32](id: 0, value: s.readfloat32)]
 
-proc readDeformablePrimitive(s: Stream): DeformablePrimitive =
-  discard s.readData(result.addr, sizeof(result.matTexId) + sizeof(result.numVertices) + sizeof(result.numVerticesActual))
-  result.vertices  = s.readSeq(result.numVerticesActual.int, DeformableVertex, discardPadding=true)
-  result.normals   = s.readSeq(result.numVerticesActual.int, Normal)
-  result.texCoords = s.readSeq(result.numVertices.int, UV)
+proc readApObjectController(s: Stream, trackKinds: var seq[uint32]): ApObjectController =
+  while trackKinds.len < 4: trackKinds.add 0.uint32
+  result.positionTrack = readApTrack[Vec3](s,    trackKinds[0])
+  result.rotationTrack = readApTrack[Vec3](s,    trackKinds[1])
+  result.scaleTrack    = readApTrack[Vec3](s,    trackKinds[2])
+  result.alphaTrack    = readApTrack[float32](s, trackKinds[3])
 
-proc readShadowPrimitive(s: Stream): ShadowPrimitive =
-  discard s.readData(result.addr, sizeof(result.numVertices) + sizeof(result.numIndices))
-  result.vertices = s.readSeq(result.numVertices.int, Vec3H, discardPadding=true)
-  result.indices  = s.readSeq(result.numIndices.int, uint32)
+proc readAnime*(s: Stream): Anime =
+  discard s.readData(result.id.addr,         sizeof(result.id))
+  discard s.readData(result.frameCount.addr, sizeof(result.frameCount))
+  discard s.readData(result.size.addr,       sizeof(result.size))
+  var start = s.getPosition()
+  while s.getPosition() < start + (result.size.int*4):
+    var aph: AnimePrimitiveHeader
+    discard s.readData(aph.addr, sizeof(aph))
+    # echo "type: ", aph.catType.AnimePrimitiveCategory, " ", aph.objType.AnimePrimitiveObject
+
+    var size: int = aph.size.int * 4
+    if aph.catType.AnimePrimitiveCategory == apcController1 and aph.objType.AnimePrimitiveObject == apoObject:
+      var head: AnimeControllerHeader = s.readAnimeControllerHeader()
+      # echo head
+      # echo "type: ", aph.catType.AnimePrimitiveCategory, " ", aph.objType.AnimePrimitiveObject
+      var objContr: ApObjectController = s.readApObjectController(head.parameters.trackKinds)
+      objContr.header = head
+      result.objectControllers.add objContr
+    # if aph.catType.AnimePrimitiveCategory == apcKeyframe and aph.objType.AnimePrimitiveObject == apoObject:
+    # elif
+    else:
+      # if result.id == 49:
+      #   echo aph.catType.AnimePrimitiveCategory, " ", aph.objType.AnimePrimitiveObject
+      for i in 0 ..< (size):
+        discard s.readuint8()
+    # echo aph
+    # if aph.objType.AnimePrimitiveObject == apoObject:
+
+    # case aph.catType.AnimePrimitiveCategory
+    # of apcController1, apcController2, apcController3:
+    #   echo "type: ", aph.catType.AnimePrimitiveCategory, " ", aph.objType.AnimePrimitiveObject
+    #   var head: AnimeControllerHeader = s.readAnimeControllerHeader()
+    #   if aph.objType == apoObject:
+    #     var apoc = s.readApObjectController()
+    #   # else:
+    #   #   size -= sizeof(uint64)
+    #   size -= sizeof(uint64)
+    #   echo head.parameters.numTracks, " ", head.parameters.trackKinds, " ", size / 4
+    # else:
+    #   discard
+
+
+  while s.getPosition() mod 4 != 0: discard s.readuint8()
+
 
 proc readModel*(s: Stream): Model =
   discard s.readData(result.header.addr, sizeof(result.header))

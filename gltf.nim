@@ -20,6 +20,8 @@ type
 
   Node = object
     mesh: ResourceId
+    translation, scale: Vec3
+    rotation: Vec4
 
   Scene = object
     nodes: seq[ResourceId]
@@ -135,30 +137,38 @@ proc createAccessor[T](context: var Context, data: seq[T], `type`: string, compo
 #   result.attributes["NORMAL"]     = context.createAccessor(primitive.normals.mapIt(it.value).toVec3Seq, "VEC3", VEC_3_TYPE)
 #   # result.attributes["TEXCOORD_0"] = context.createAccessor(primitive.texCoords, "VEC2", UV_TYPE)
 
-proc serialize(context: var Context, primitive: RigidPrimitive, scale: float32): Primitive =
+proc serialize(context: var Context, primitive: RigidPrimitive): Primitive =
   result.mode = 4
   result.material = context.ccsIdToGltfId[("mat", primitive.matTexId.int)]
-  result.attributes["POSITION"]   = context.createAccessor(primitive.vertices.toFloatVecs.scale(scale * 0.001), "VEC3", GL_FLOAT, 34962.some)
+  result.attributes["POSITION"]   = context.createAccessor(primitive.vertices.toFloatVecs, "VEC3", GL_FLOAT, 34962.some)
   # result.attributes["NORMAL"]     = context.createAccessor(primitive.normals.mapIt(it.value).toFloatVecs, "VEC3", GL_FLOAT, 34962.some)
   var indices: seq[uint32] # Todo move to blocks?
   for i in 0..<primitive.vertices.len:
     if primitive.normals[i].flags == 0: indices &= @[i.uint32, (i-1).uint32, (i-2).uint32]
+    # else:
+    #   echo primitive.normals[i].flags
+  # echo "serializing."
+  for i in 0..<primitive.vertices.len:
+    if i.uint32 notin indices:
+      echo "HERE: ", i
   result.indices = context.createAccessor(indices, "SCALAR", GL_INT, 34963.some).some()
-  echo primitive.texCoords
-  result.attributes["TEXCOORD_0"] = context.createAccessor(primitive.texCoords.toFloatVecs.scale(1.0 / 256.0), "VEC2", GL_FLOAT, 34962.some)
+  # echo primitive.texCoords
+  result.attributes["TEXCOORD_0"] = context.createAccessor(primitive.texCoords.toFloatVecs.mapIt([(it[0]/256.0).float32, it[1]/256.0].Vec2), "VEC2", GL_FLOAT, 34962.some)
 
-proc createNode*(context: var Context, model: blocks.Model) =
+proc createNode*(context: var Context, model: blocks.Model, position, rotation: Vec3 = [0'f32, 0, 0].Vec3, scale: Vec3 = [1'f32, 1, 1]) =#, dummy: blocks.Dummy) =
   var meshId = context.file.meshes.len()
   context.file.meshes.add Mesh()
   var nodeId = context.file.nodes.len()
-  context.file.nodes.add  Node(mesh: meshId)
+  # echo dummy.rotation
+  context.file.nodes.add  Node(mesh: meshId, translation: position, rotation: eulerToQuaternion(rotation), scale: scale*model.header.vertexScale)#, translation: dummy.position, scale: [model.header.vertexScale, model.header.vertexScale, model.header.vertexScale])
+  # context.file.nodes.add  Node(mesh: meshId)#, translation: dummy.position, scale: [model.header.vertexScale, model.header.vertexScale, model.header.vertexScale])
   context.file.scenes[0].nodes.add(nodeId)
 
   case model.kind
   of mkRigid:
     for primitive in model.rigidPrimitives:
       if primitive.vertices.len != 0:
-        context.file.meshes[^1].primitives.add context.serialize(primitive, model.header.vertexScale)
+        context.file.meshes[^1].primitives.add context.serialize(primitive)
   else:
     raise newException(ValueError, "Can't serialize model type.")
 
@@ -195,6 +205,7 @@ proc writeToFile*(context: var Context, path: Path) =
   # Serialize binary buffer and add to file
   context.buffer.setPosition(0)
   var binData: string = context.buffer.readAll()
+  if len(binData) == 0: return
   context.file.buffers.add Buffer(byteLength: binData.len)
   var binHeader = ChunkHeader(chunkLength: binData.len.uint32, chunkType: 0x004E4942)
 
