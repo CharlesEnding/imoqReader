@@ -145,23 +145,14 @@ proc serialize(context: var Context, primitive: RigidPrimitive): Primitive =
   var indices: seq[uint32] # Todo move to blocks?
   for i in 0..<primitive.vertices.len:
     if primitive.normals[i].flags == 0: indices &= @[i.uint32, (i-1).uint32, (i-2).uint32]
-    # else:
-    #   echo primitive.normals[i].flags
-  # echo "serializing."
-  for i in 0..<primitive.vertices.len:
-    if i.uint32 notin indices:
-      echo "HERE: ", i
   result.indices = context.createAccessor(indices, "SCALAR", GL_INT, 34963.some).some()
-  # echo primitive.texCoords
   result.attributes["TEXCOORD_0"] = context.createAccessor(primitive.texCoords.toFloatVecs.mapIt([(it[0]/256.0).float32, it[1]/256.0].Vec2), "VEC2", GL_FLOAT, 34962.some)
 
 proc createNode*(context: var Context, model: blocks.Model, position, rotation: Vec3 = [0'f32, 0, 0].Vec3, scale: Vec3 = [1'f32, 1, 1]) =#, dummy: blocks.Dummy) =
   var meshId = context.file.meshes.len()
   context.file.meshes.add Mesh()
   var nodeId = context.file.nodes.len()
-  # echo dummy.rotation
   context.file.nodes.add  Node(mesh: meshId, translation: position, rotation: eulerToQuaternion(rotation), scale: scale*model.header.vertexScale)#, translation: dummy.position, scale: [model.header.vertexScale, model.header.vertexScale, model.header.vertexScale])
-  # context.file.nodes.add  Node(mesh: meshId)#, translation: dummy.position, scale: [model.header.vertexScale, model.header.vertexScale, model.header.vertexScale])
   context.file.scenes[0].nodes.add(nodeId)
 
   case model.kind
@@ -216,6 +207,7 @@ proc writeToFile*(context: var Context, path: Path) =
 
   var fileHeader = GltfHeader(magic: 0x46_54_6C_67, version: 2, length: sizeof(GltfHeader) + sizeof(ChunkHeader)*2 + jsonHeader.chunkLength + binHeader.chunkLength)
   var output = newFileStream(path.string, fmWrite)
+  defer: output.close()
   output.writeData(fileHeader.addr,  sizeof(GltfHeader))
   output.writeData(jsonHeader.addr,  sizeof(ChunkHeader))
   output.writeData(jsonData[0].addr, jsonData.len)
