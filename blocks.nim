@@ -128,32 +128,14 @@ type
     magic: uint16
     size: uint32
 
-  # ApFrame {.packed.} = object
-  #   header: AnimePrimitiveHeader
-  #   frameNumber: uint32
   AnimeControllerTrackKind = enum actkFixed = 1, actkAnimated = 2
   AnimeControllerParameter = object # parameters are uint32 with 3 bits per track denoting its type, up to 10 tracks
     numTracks: int                  # we store them as objects instead
     trackKinds: seq[uint32]
-    # trackKinds: seq[AnimeControllerTrackKind]
 
   AnimeControllerHeader {.packed.} = object
     objectId*: uint32
     parameters: AnimeControllerParameter
-
-  # ApFrameVec3 {.packed.} = object
-  #   id: uint32
-  #   value: Vec3
-  # ApFrameFloat {.packed.} = object
-  #   id: uint32
-  #   value: float32
-
-  # ApTrackVec3 {.packed.} = object
-  #   numKeyframes: uint32
-  #   keyframes: seq[ApFrameVec3]
-  # ApTrackFloat {.packed.} = object
-  #   numKeyframes: uint32
-  #   keyframes: seq[ApFrameFloat]
 
   ApFrame[T] = object
     id: uint32
@@ -222,7 +204,6 @@ createReader(RigidPrimitive,       result.numVertices, result.numVertices, resul
 createReader(DeformRigidPrimitive, result.numVertices, result.numVertices, result.numVertices)
 createReader(DeformablePrimitive,  result.numVerticesActual, result.numVerticesActual, result.numVertices)
 
-# createReader(Anime, result.size*4)
 
 proc readAnimeControllerParameter*(s: Stream): AnimeControllerParameter =
   var data = s.readuint32()
@@ -269,39 +250,16 @@ proc readAnime*(s: Stream): Anime =
   while s.getPosition() < start + (result.size.int*4):
     var aph: AnimePrimitiveHeader
     discard s.readData(aph.addr, sizeof(aph))
-    # echo "type: ", aph.catType.AnimePrimitiveCategory, " ", aph.objType.AnimePrimitiveObject
 
     var size: int = aph.size.int * 4
     if aph.catType.AnimePrimitiveCategory == apcController1 and aph.objType.AnimePrimitiveObject == apoObject:
       var head: AnimeControllerHeader = s.readAnimeControllerHeader()
-      # echo head
-      # echo "type: ", aph.catType.AnimePrimitiveCategory, " ", aph.objType.AnimePrimitiveObject
       var objContr: ApObjectController = s.readApObjectController(head.parameters.trackKinds)
       objContr.header = head
       result.objectControllers.add objContr
-    # if aph.catType.AnimePrimitiveCategory == apcKeyframe and aph.objType.AnimePrimitiveObject == apoObject:
-    # elif
     else:
-      # if result.id == 49:
-      #   echo aph.catType.AnimePrimitiveCategory, " ", aph.objType.AnimePrimitiveObject
       for i in 0 ..< (size):
         discard s.readuint8()
-    # echo aph
-    # if aph.objType.AnimePrimitiveObject == apoObject:
-
-    # case aph.catType.AnimePrimitiveCategory
-    # of apcController1, apcController2, apcController3:
-    #   echo "type: ", aph.catType.AnimePrimitiveCategory, " ", aph.objType.AnimePrimitiveObject
-    #   var head: AnimeControllerHeader = s.readAnimeControllerHeader()
-    #   if aph.objType == apoObject:
-    #     var apoc = s.readApObjectController()
-    #   # else:
-    #   #   size -= sizeof(uint64)
-    #   size -= sizeof(uint64)
-    #   echo head.parameters.numTracks, " ", head.parameters.trackKinds, " ", size / 4
-    # else:
-    #   discard
-
 
   while s.getPosition() mod 4 != 0: discard s.readuint8()
 
