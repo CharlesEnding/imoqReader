@@ -1,6 +1,7 @@
 Files Info:
 
-0-395: Undocumented
+0-50: Undocumented
+51-395: Textures, no models
 396-494: Desktops - A single quad mesh with a large texture on it.
 495-532: Undocumented
 533-578: Staves
@@ -21,4 +22,4 @@ Files Info:
 1399-1417: Maps used for story beats and some cutscenes
 1418-1446: Undocumented
 
-Left to document: 395+37+85+94+201+10+23+28 = 863
+Left to document: 51+37+85+94+201+10+23+28 = 519
