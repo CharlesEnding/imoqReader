@@ -136,6 +136,7 @@ proc readFile(filePath: string, fileIndex: int) =
         clumps[clump.id] = clump
       of cotMorpher:
         discard stream.readuint32()
+        discard stream.readuint32()
       else:
         var data: string = stream.readStr(size)
 
