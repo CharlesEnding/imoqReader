@@ -148,6 +148,44 @@ proc serialize(context: var Context, primitive: RigidPrimitive): Primitive =
   result.indices = context.createAccessor(indices, "SCALAR", GL_INT, 34963.some).some()
   result.attributes["TEXCOORD_0"] = context.createAccessor(primitive.texCoords.toFloatVecs.mapIt([(it[0]/256.0).float32, it[1]/256.0].Vec2), "VEC2", GL_FLOAT, 34962.some)
 
+proc serialize(context: var Context, primitive: DeformRigidPrimitive): Primitive =
+  result.mode = 4
+  result.material = context.ccsIdToGltfId[("mat", primitive.matTexId.int)]
+  # result.attributes["POSITION"]   = context.createAccessor(primitive.vertices.mapIt(it.value).toFloatVecs, "VEC3", GL_FLOAT, 34962.some)
+  result.attributes["POSITION"]   = context.createAccessor(primitive.vertices.toFloatVecs, "VEC3", GL_FLOAT, 34962.some)
+  # result.attributes["NORMAL"]     = context.createAccessor(primitive.normals.mapIt(it.value).toFloatVecs, "VEC3", GL_FLOAT, 34962.some)
+  var indices: seq[uint32] # Todo move to blocks?
+  for i in 0..<primitive.vertices.len:
+    if primitive.normals[i].flags == 0: indices &= @[i.uint32, (i-1).uint32, (i-2).uint32]
+  result.indices = context.createAccessor(indices, "SCALAR", GL_INT, 34963.some).some()
+  result.attributes["TEXCOORD_0"] = context.createAccessor(primitive.texCoords.toFloatVecs.mapIt([(it[0]/256.0).float32, it[1]/256.0].Vec2), "VEC2", GL_FLOAT, 34962.some)
+
+proc serialize(context: var Context, primitive: DeformablePrimitive): Primitive =
+  result.mode = 4
+  result.material = context.ccsIdToGltfId[("mat", primitive.matTexId.int)]
+  # Some verties are only there to define a bone vector
+  var verticesActual: seq[Vec3H]
+  var normalsActual: seq[Normal]
+  for i in 0..<primitive.vertices.len:
+    var vertex: DeformableVertex = primitive.vertices[i]
+    var normal: Normal = primitive.normals[i]
+    let keep = (vertex.joint shr 9) and 0x1
+    if keep != 0:
+      verticesActual.add vertex.value
+      normalsActual.add normal
+
+
+  result.attributes["POSITION"]   = context.createAccessor(verticesActual.toFloatVecs, "VEC3", GL_FLOAT, 34962.some)
+  # result.attributes["POSITION"]   = context.createAccessor(primitive.vertices.toFloatVecs, "VEC3", GL_FLOAT, 34962.some)
+  # result.attributes["NORMAL"]     = context.createAccessor(primitive.normals.mapIt(it.value).toFloatVecs, "VEC3", GL_FLOAT, 34962.some)
+  var indices: seq[uint32] # Todo move to blocks?
+  for i in 0..<verticesActual.len:
+    if normalsActual[i].flags == 0: indices &= @[i.uint32, (i-1).uint32, (i-2).uint32]
+
+  result.indices = context.createAccessor(indices, "SCALAR", GL_INT, 34963.some).some()
+  result.attributes["TEXCOORD_0"] = context.createAccessor(primitive.texCoords.toFloatVecs.mapIt([(it[0]/256.0).float32, it[1]/256.0].Vec2), "VEC2", GL_FLOAT, 34962.some)
+  # echo primitive.texCoords.toFloatVecs.len, " ", primitive.vertices.mapIt(it.value).toFloatVecs.len, " ", primitive.vertices.len
+
 proc createNode*(context: var Context, model: blocks.Model, position, rotation: Vec3 = [0'f32, 0, 0].Vec3, scale: Vec3 = [1'f32, 1, 1]) =#, dummy: blocks.Dummy) =
   var meshId = context.file.meshes.len()
   context.file.meshes.add Mesh()
@@ -160,8 +198,19 @@ proc createNode*(context: var Context, model: blocks.Model, position, rotation: 
     for primitive in model.rigidPrimitives:
       if primitive.vertices.len != 0:
         context.file.meshes[^1].primitives.add context.serialize(primitive)
+    echo context.file.meshes[^1].primitives.len
+  of mkDeformable:
+    for primitive in model.deformableRigidPrimitives:
+      if primitive.vertices.len != 0:
+        context.file.meshes[^1].primitives.add context.serialize(primitive)
+    context.file.meshes[^1].primitives.add context.serialize(model.deformablePrimitive)
+    echo context.file.meshes[^1].primitives.len
   else:
     raise newException(ValueError, "Can't serialize model type.")
+  if context.file.meshes[^1].primitives.len == 0:
+    discard context.file.meshes.pop()
+    discard context.file.nodes.pop()
+    discard context.file.scenes[0].nodes.pop()
 
 proc bmpDeindex*(data: seq[byte], palette: seq[Color], width, height, `type`: int): seq[byte] =
   if `type` == 0x13:

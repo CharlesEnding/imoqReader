@@ -9,7 +9,7 @@ type
 
   DeformableVertex* {.packed.} = object
     value*: Vec3H
-    joint: uint16
+    joint*: uint16
 
   Clump* {.packed.} = object
     id*, numNodeIds*: uint32
@@ -27,7 +27,7 @@ type
     position*, rotation*: Vec3
 
   External* {.packed.} = object
-    animId, unkFlags, targetObjectId: uint32
+    animId*, unkFlags, targetObjectId*: uint32
 
   Unk5* {.packed.} = object
     animId, unk1, targetMorpherId, unk2, unk3: uint32
@@ -52,13 +52,13 @@ type
     normals*:  seq[Normal]
 
   DeformRigidPrimitive* = object
-    matTexId, numVertices, unk1, parentId: uint32
+    matTexId*, numVertices, unk1, parentId: uint32
     vertices*: seq[Vec3H]
     normals*:  seq[Normal]
     texCoords*: seq[UV]
 
   DeformablePrimitive* = object
-    matTexId, numVertices, numVerticesActual: uint32
+    matTexId*, numVertices, numVerticesActual: uint32
     vertices*: seq[DeformableVertex]
     normals*:  seq[Normal]
     texCoords*: seq[UV]

@@ -40,7 +40,7 @@ type
 
   EntryHeader {.packed.} = object
     `type`: CcsStructType
-    size:   uint32 # Size is not valid for textures apparently.
+    size:   uint32 # Size is not valid for textures or models apparently.
 
 macro enumElementsAsSet(enm: typed): untyped = result = newNimNode(nnkCurly).add(enm.getType[1][1..^1])
 const CCS_CAT_TYPES = enumElementsAsSet(CcsCatType)
@@ -94,6 +94,7 @@ proc readFile(filePath: string, fileIndex: int) =
   var objects:   Table[uint32, Object]
   var clumps:    Table[uint32, Clump]
   var animes:    Table[uint32, Anime]
+  var anime2obj: Table[uint32, uint32]
 
   while not stream.atEnd():
     var header: EntryHeader
@@ -127,6 +128,11 @@ proc readFile(filePath: string, fileIndex: int) =
       of cotAnime:
         var anime: Anime = stream.readAnime()
         animes[anime.id] = anime
+        echo anime.id, " ", anime.frameCount, " ", anime.size
+        if anime.id == 105:
+          for objControl in anime.objectControllers:
+            echo objControl
+            echo "--"
       of cotObject:
         var obj: Object
         discard stream.readData(obj.addr, size)
@@ -134,6 +140,9 @@ proc readFile(filePath: string, fileIndex: int) =
       of cotClump:
         var clump: Clump = stream.readClump()
         clumps[clump.id] = clump
+      of cotExternal:
+        var external: External = stream.readExternal()
+        anime2obj[external.animId] = external.targetObjectId
       of cotMorpher:
         discard stream.readuint32()
         discard stream.readuint32()
@@ -148,39 +157,54 @@ proc readFile(filePath: string, fileIndex: int) =
       if texture.clutId in cluts:
         context.createMaterial(material, texture, cluts[texture.clutId].palette)
 
+  var animation = animes[105]
+  echo objects
+  echo anime2obj
   for objId, obj in objects.mpairs:
+    echo objId
     if obj.modelId notin models: continue
-
     var model: Model = models[obj.modelId]
-    if model.kind == mkRigid:
+    case model.kind
+    of mkRigid, mkDeformable:
       var found: bool = false
-      for anid, anim in animes.mpairs:
-        for objTransform in anim.objectControllers:
-          if objTransform.header.objectId+1 == objId or objTransform.header.objectId+1 == obj.parentId:
-            var translation: Vec3 = if objTransform.positionTrack.keyframes.len > 0: objTransform.positionTrack.keyframes[0].value
-            else: [0'f32, 0, 0].Vec3
-            var rotation: Vec3 = if objTransform.rotationTrack.keyframes.len > 0: objTransform.rotationTrack.keyframes[0].value
-            else: [0'f32, 0, 0].Vec3
-            var scale: Vec3 = if objTransform.scaleTrack.keyframes.len > 0: objTransform.scaleTrack.keyframes[0].value
-            else: [1'f32, 1, 1].Vec3
-
-            context.createNode(model, translation, rotation, scale)#, dummy)
-            found = true
-            break
+      for channel in animation.objectControllers:
+        if anime2obj[channel.header.objectId] == objId:
+          echo channel
+          var translation: Vec3 = if channel.positionTrack.keyframes.len > 0:
+            echo "super"
+            channel.positionTrack.keyframes[0].value
+          else:
+            [0'f32, 0, 0].Vec3
+          var rotation: Vec3 = if channel.rotationTrack.keyframes.len > 0:
+            channel.rotationTrack.keyframes[0].value
+          else:
+            [0'f32, 0, 0].Vec3
+          var scale: Vec3 = if channel.scaleTrack.keyframes.len > 0:
+            channel.scaleTrack.keyframes[0].value
+          else:
+            [1'f32, 1, 1].Vec3
+          echo "yes", " ", translation
+          context.createNode(model, translation, rotation, scale)#, dummy)
+          found = true
+          break
       if not found:
-        context.createNode(model)#, dummy)
-
-  context.writeToFile(("data/" & $fileIndex & ".glb").Path)
+        context.createNode(model)
+    # of mkDeformable:
+    #   context.createNode(model)
+    else:
+      discard
+  context.writeToFile(("data/" & $fileIndex  & ".glb").Path)
 
 var errors: int = 0
 var broken = [1031, 1032, 1039, 1143, 1145]
 var investigate = [1235, 1240, 1245, 1250, 1255, 1260, 1275, 1282, 1289, 1296, 1303, 1312, 1393] # tow in name
 var towns  = 1213..1224
 var moretowninfo = 922..962
-# var single: seq[int] = @[1215]
-for i in 0..<1447:
-  echo i
-# for i in single:
+var single: seq[int] = @[964]
+# for i in 0..<1447:
+# for i in 495..<1447:
+#   echo i
+for i in single:
   let filePath  = "data/infection/unpacked/" & $i
   if not fileExists(filePath.Path): continue
   try:
