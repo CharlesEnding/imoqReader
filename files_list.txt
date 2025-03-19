@@ -13,19 +13,29 @@ Files Info:
 800-880: Twinblades
 881: 1 more axe
 882: 1 more twinblade
-883-975: Undocumented
+883-897: Undocumented
+898-938: Characters
+939-962: Undocumented
+944-945: Aura
+946-962: Characters
+963-975: Grunties
 976: Warp Portal
 977-1004: Dungeon Props (eggs, skeletons, boxes, chests, ...)
 1005-1011: Ghent Statues
-1012-1213: Undocumented
+1013-1145: Enemies
+1146-1167: Undocumented
+1168-1182: Bosses
+1183-1192: Undocumented
+1193-1202: Bosses
+1203-1213: Undocumented
 1214-1224: Maps (Mac Anu, Dun Loireag, Netslum, ...)
 1225-1235: Undocumented
 1236-1374: Field skies and field props (dungeon entrances, rocks, etc...)
-1375-1398: Undocumented
-1399-1417: Maps used for story beats and some cutscenes
+1375-1392: Undocumented
+1393-1417: Maps used for story beats and some cutscenes
 1418-1446: Undocumented
 
-Left to document: 443/1446
+Left to document: 206/1446
 
 Files (indices prepended by me):
 
@@ -1579,218 +1589,12 @@ Not documented:
 895_cla0ski2
 896_cla0ski3
 897_cla0ski4
-898_cbu1body
-899_cbu2body
-900_cbu3body
-901_cbu4body
-902_cbu5body
-903_ctu1body
-904_ctu2body
-905_ctu3body
-906_cla1body
-907_cla2body
-908_cha1body
-909_cha2body
-910_chb1body
-911_chb2body
-912_cwm1body
-913_cwm2body
-914_cwm3body
-915_cwm4body
-916_cha3body
-917_ctu4body
-918_cwm5body
-919_rtpc1
-920_rtpc2
-921_rtpc3
-922_cth_k
-923_ctval
-924_ctwit
-925_ctbu2
-926_ctbu4
-927_ctbu5
-928_cthb2
-929_ctla1
-930_ctla2
-931_cttu2
-932_cttu3
-933_ctwm1
-934_ctwm3
-935_ctwm4
-936_ctw1
-937_ctw2
-938_ctw3
 939_cts1
 940_cts2
 941_cts3
 942_cts4
 943_cts5
-944_aur1body
-945_aur2body
-946_csig_bu2
-947_csig_bu4
-948_csig_ha2
-949_csig_hb1
-950_csig_la1
-951_csig_tu2
-952_csig_tu3
-953_csig_wm1
-954_csig_wm3
-955_ctbuz
-956_ctwmk
-957_cnw1
-958_cnw2
-959_ctr1
-960_ctr2
-961_ctr3
-962_ctr4
-963_inu
-964_cdogbod0
-965_cdogbod1
-966_cdogbod2
-967_cdogbod3
-968_cdogbod4
-969_cdogbod5
-970_cdogbod6
-971_cdogbod7
-972_cdogbod8
-973_cdogbod9
-974_cdogboda
-975_cdogbodb
 1012_xgwater0
-1013_e1f1
-1014_e1fa
-1015_e1h1
-1016_e1k1
-1017_e1ka
-1018_e1s1
-1019_e1x1
-1020_e1z1
-1021_e2k1
-1022_e2p1
-1023_e2v1
-1024_e2x1
-1025_e3x1
-1026_e3s1
-1027_e3m1
-1028_e4m1
-1029_e4w1
-1030_e4x1
-1031_ea11
-1032_ea1x
-1033_eac1
-1034_eacx
-1035_eag1
-1036_eaga
-1037_eagb
-1038_eak1
-1039_eakx
-1040_eax1
-1041_ebk1
-1042_ebkx
-1043_ebx1
-1044_ebl1
-1045_ebq1
-1046_ebqx
-1047_ecc1
-1048_ecm1
-1049_ecs1
-1050_ecsx
-1051_ecx1
-1052_edd1
-1053_eddx
-1054_ede1
-1055_edi1
-1056_edv1
-1057_edx1
-1058_eee1
-1059_eeex
-1060_eer1
-1061_eet1
-1062_eetx
-1063_eex1
-1064_efe1
-1065_efex
-1066_eff1
-1067_efm1
-1068_efs1
-1069_efx1
-1070_egf1
-1071_egg1
-1072_egk1
-1073_eggx
-1074_egmf
-1075_egn1
-1076_ego1
-1077_egx1
-1078_ehh1
-1079_ehk1
-1080_ehkx
-1081_ehkz
-1082_ehs1
-1083_ehx1
-1084_eii1
-1085_eix1
-1086_eka1
-1087_ekd1
-1088_eks1
-1089_ekx1
-1090_elda
-1091_eldd
-1092_elde
-1093_eldf
-1094_eldl
-1095_eldw
-1096_eldx
-1097_eldz
-1098_elg1
-1099_elga
-1100_elgx
-1101_ell1
-1102_elw1
-1103_elwa
-1104_elwx
-1105_elx1
-1106_epg1
-1107_epm1
-1108_epw1
-1109_epwx
-1110_epx1
-1111_esf1
-1112_ess1
-1113_essx
-1114_est1
-1115_esx1
-1116_etn1
-1117_etx1
-1118_euc1
-1119_eucx
-1120_eud1
-1121_eudx
-1122_eug1
-1123_euga
-1124_eugx
-1125_eugz
-1126_eus1
-1127_eux1
-1128_euz1
-1129_evb1
-1130_evba
-1131_evbb
-1132_evm1
-1133_evg1
-1134_evr1
-1135_evx1
-1136_ewi1
-1137_ewp1
-1138_eww1
-1139_ewx1
-1140_ezx1
-1141_eza1
-1142_ezb1
-1143_ezbx
-1144_ezc1
-1145_ezcx
 1146_x01
 1151_x01i
 1152_x01s
@@ -1809,21 +1613,6 @@ Not documented:
 1165_x04g
 1166_x04i
 1167_x04s
-1168_x11
-1169_x11f
-1170_x11g
-1171_x11i
-1172_x11s
-1173_x21
-1174_x21f
-1175_x21g
-1176_x21i
-1177_x21s
-1178_x31
-1179_x31f
-1180_x31g
-1181_x31i
-1182_x31s
 1183_x41
 1184_x41f
 1185_x41g
@@ -1834,16 +1623,6 @@ Not documented:
 1190_x51g
 1191_x51i
 1192_x51s
-1193_x61
-1194_x61f
-1195_x61g
-1196_x61i
-1197_x61s
-1198_x71
-1199_x71f
-1200_x71g
-1201_x71i
-1202_x71s
 1203_x81
 1204_x81f
 1205_x81g
@@ -1884,12 +1663,6 @@ Not documented:
 1390_sd7a
 1391_sd8a
 1392_sdaa
-1393_se1_1
-1394_se1_2
-1395_se1_3
-1396_se1_4
-1397_se1_5
-1398_se1_6
 1418_x7404cam
 1419_x7407cam
 1420_x7408cam
